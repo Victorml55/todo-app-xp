@@ -130,3 +130,43 @@ h1 {
   color: #aaa;
   padding: 1rem;
 }
+
+.edit-input {
+  flex: 1;
+  padding: 0.3rem 0.6rem;
+  border: 2px solid #2e4a8b;
+  border-radius: 4px;
+  font-size: 1rem;
+  outline: none;
+}
+
+.edit-input.error {
+  border-color: #e74c3c;
+}
+
+.btn-edit {
+  background: #f39c12;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+
+.btn-save {
+  background: #27ae60;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+
+.btn-cancel {
+  background: #95a5a6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
