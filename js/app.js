@@ -183,6 +183,23 @@ function cancelEdit(id, originalText) {
 }
 
 
+// HU-07: MODO OSCURO
+
+function toggleTheme() {
+  const isDark = document.body.classList.toggle('dark');
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  document.getElementById('themeBtn').textContent = isDark ? '☀️ Modo Claro' : '🌙 Modo Oscuro';
+}
+
+function loadTheme() {
+  const saved = localStorage.getItem('theme');
+  if (saved === 'dark') {
+    document.body.classList.add('dark');
+    document.getElementById('themeBtn').textContent = '☀️ Modo Claro';
+  }
+}
+
+
 // EVENTOS
 
 // Eventos de filtros
@@ -205,6 +222,6 @@ document.getElementById('taskInput').addEventListener('keydown', (e) => {
 
 
 // INICIO
-
+loadTheme();
 loadTasks();
 renderTasks();
