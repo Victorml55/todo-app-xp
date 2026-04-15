@@ -74,6 +74,7 @@ function renderTasks() {
       <span class="task-text">${task.text}</span>
       <div class="task-actions">
         <button class="btn-complete" onclick="toggleComplete(${task.id})">✓</button>
+        <button class="btn-edit" onclick="editTask(${task.id})">✎</button>
         <button class="btn-delete" onclick="deleteTask(${task.id})">✕</button>
       </div>
     `;
@@ -99,6 +100,60 @@ function toggleComplete(id) {
 function deleteTask(id) {
   tasks = tasks.filter(t => t.id !== id);
   saveTasks();
+  renderTasks();
+}
+
+
+// HU-04: EDITAR TAREA
+
+function editTask(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+
+  const li = document.querySelector(`[data-id="${id}"]`);
+  const textSpan = li.querySelector('.task-text');
+
+  // Convertir texto en input editable
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = task.text;
+  input.className = 'edit-input';
+  textSpan.replaceWith(input);
+  input.focus();
+
+  // Cambiar botones
+  const actions = li.querySelector('.task-actions');
+  actions.innerHTML = `
+    <button class="btn-save" onclick="saveEdit(${id}, this)">Guardar</button>
+    <button class="btn-cancel" onclick="cancelEdit(${id}, '${task.text}')">Cancelar</button>
+  `;
+
+  // Confirmar con Enter
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') saveEdit(id, input);
+    if (e.key === 'Escape') cancelEdit(id, task.text);
+  });
+}
+
+function saveEdit(id, btn) {
+  const li = document.querySelector(`[data-id="${id}"]`);
+  const input = li.querySelector('.edit-input');
+  const newText = input.value.trim();
+
+  if (newText === '') {
+    input.classList.add('error');
+    input.placeholder = 'No puede estar vacío';
+    setTimeout(() => input.classList.remove('error'), 2000);
+    return;
+  }
+
+  const task = tasks.find(t => t.id === id);
+  task.text = newText;
+  saveTasks();
+  renderTasks();
+}
+
+function cancelEdit(id, originalText) {
   renderTasks();
 }
 
