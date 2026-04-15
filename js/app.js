@@ -91,6 +91,22 @@ function renderTasks() {
   });
 }
 
+// HU-06: FILTROS
+
+function setFilter(filter) {
+  currentFilter = filter;
+
+  // Actualizar botón activo
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.dataset.filter === filter) {
+      btn.classList.add('active');
+    }
+  });
+
+  renderTasks();
+}
+
 
 // HU-02: MARCAR COMO COMPLETADA
 
@@ -168,6 +184,13 @@ function cancelEdit(id, originalText) {
 
 
 // EVENTOS
+
+// Eventos de filtros
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    setFilter(btn.dataset.filter);
+  });
+});
 
 document.getElementById('addBtn').addEventListener('click', () => {
   const input = document.getElementById('taskInput');
