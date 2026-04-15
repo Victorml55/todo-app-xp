@@ -81,9 +81,26 @@ function renderTasks() {
   });
 }
 
-// Funciones placeholder para las siguientes HU
-function toggleComplete(id) { console.log('HU-02 pendiente', id); }
-function deleteTask(id) { console.log('HU-03 pendiente', id); }
+
+// HU-02: MARCAR COMO COMPLETADA
+
+function toggleComplete(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+
+  task.completed = !task.completed;
+  saveTasks();
+  renderTasks();
+}
+
+
+// HU-03: ELIMINAR TAREA
+
+function deleteTask(id) {
+  tasks = tasks.filter(t => t.id !== id);
+  saveTasks();
+  renderTasks();
+}
 
 
 // EVENTOS
