@@ -1,40 +1,80 @@
+/* ==========================================
+   VARIABLES DE TEMA
+   ========================================== */
+:root {
+  --bg-page: #f0f2f5;
+  --bg-container: #ffffff;
+  --text-primary: #1a3a6b;
+  --text-secondary: #333;
+  --text-muted: #aaa;
+  --border-color: #ddd;
+  --task-bg: #fafafa;
+  --input-bg: #ffffff;
+}
+
+body.dark {
+  --bg-page: #1a1a2e;
+  --bg-container: #16213e;
+  --text-primary: #e0e0e0;
+  --text-secondary: #cccccc;
+  --text-muted: #666;
+  --border-color: #444;
+  --task-bg: #0f3460;
+  --input-bg: #1a1a2e;
+}
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   font-family: Arial, sans-serif;
-  background: #f0f2f5;
+  background: var(--bg-page);
   padding: 2rem;
+  transition: background 0.3s, color 0.3s;
 }
 
 .container {
   max-width: 600px;
   margin: 0 auto;
-  background: white;
+  background: var(--bg-container);
   border-radius: 10px;
   padding: 2rem;
   box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  transition: background 0.3s;
 }
 
 h1 {
   text-align: center;
   margin-bottom: 1.5rem;
-  color: #1a3a6b;
-}
-
-.input-section {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  color: var(--text-primary);
 }
 
 .input-section input {
   flex: 1;
   padding: 0.6rem 1rem;
-  border: 2px solid #ddd;
+  border: 2px solid var(--border-color);
   border-radius: 6px;
   font-size: 1rem;
   outline: none;
+  background: var(--input-bg);
+  color: var(--text-secondary);
   transition: border-color 0.2s;
+}
+
+.task-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--task-bg);
+  color: var(--text-secondary);
+}
+
+.empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 1rem;
 }
 
 .input-section input:focus {
@@ -169,4 +209,21 @@ h1 {
   border-radius: 4px;
   padding: 0.3rem 0.6rem;
   cursor: pointer;
+}
+
+#themeBtn {
+  display: block;
+  margin: 0 0 1.2rem auto;
+  padding: 0.4rem 1rem;
+  background: transparent;
+  border: 2px solid var(--border-color);
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  transition: all 0.3s;
+}
+
+#themeBtn:hover {
+  background: var(--border-color);
 }
