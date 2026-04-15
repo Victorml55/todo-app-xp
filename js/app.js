@@ -3,12 +3,21 @@ let tasks = [];
 let currentFilter = 'all';
 
 function loadTasks() {
-  const saved = localStorage.getItem('tasks');
-  tasks = saved ? JSON.parse(saved) : [];
+  try {
+    const saved = localStorage.getItem('tasks');
+    tasks = saved ? JSON.parse(saved) : [];
+  } catch (e) {
+    console.warn('Error al cargar tareas, iniciando lista vacía.');
+    tasks = [];
+  }
 }
 
 function saveTasks() {
-  localStorage.setItem('tasks', JSON.stringify(tasks));
+  try {
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+  } catch (e) {
+    console.warn('Error al guardar tareas en localStorage.');
+  }
 }
 
 
