@@ -1,227 +1,478 @@
-// ESTADO Y PERSISTENCIA
+// ==========================================
+// ESTADO
+// ==========================================
 let tasks = [];
-let currentFilter = 'all';
+let availableTags = ['general'];
+let currentStatusFilter = 'all';
+let currentTagFilter = null; // null = todas las etiquetas
+let currentSearch = '';
+let editingTaskId = null;
 
-function loadTasks() {
+// Tags seleccionados en el formulario de nueva tarea
+let newTaskSelectedTags = ['general'];
+
+// ==========================================
+// PERSISTENCIA
+// ==========================================
+function loadData() {
   try {
-    const saved = localStorage.getItem('tasks');
-    tasks = saved ? JSON.parse(saved) : [];
+    const savedTasks = localStorage.getItem('tasks');
+    tasks = savedTasks ? JSON.parse(savedTasks) : [];
+    tasks.forEach(task => {
+      if (!task.tags) task.tags = ['general'];
+      if (!task.description) task.description = '';
+    });
   } catch (e) {
-    console.warn('Error al cargar tareas, iniciando lista vacía.');
+    console.warn('Error al cargar tareas.');
     tasks = [];
   }
-}
 
-function saveTasks() {
   try {
-    localStorage.setItem('tasks', JSON.stringify(tasks));
+    const savedTags = localStorage.getItem('availableTags');
+    availableTags = savedTags ? JSON.parse(savedTags) : ['general'];
+    if (!availableTags.includes('general')) availableTags.unshift('general');
   } catch (e) {
-    console.warn('Error al guardar tareas en localStorage.');
+    availableTags = ['general'];
   }
 }
 
+function saveData() {
+  try {
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    localStorage.setItem('availableTags', JSON.stringify(availableTags));
+  } catch (e) {
+    console.warn('Error al guardar datos.');
+  }
+}
 
-// HU-01: AGREGAR TAREA
+// ==========================================
+// AGREGAR TAREA
+// ==========================================
+function addTask() {
+  const titleInput = document.getElementById('taskTitle');
+  const descInput  = document.getElementById('taskDesc');
+  const title = titleInput.value.trim();
+  const desc  = descInput.value.trim();
 
-function addTask(text) {
-  const trimmed = text.trim();
-
-  if (trimmed === '') {
-    showError('El campo no puede estar vacío.');
+  if (!title) {
+    titleInput.classList.add('error');
+    titleInput.placeholder = 'El título no puede estar vacío';
+    setTimeout(() => {
+      titleInput.classList.remove('error');
+      titleInput.placeholder = 'Nombre de la tarea...';
+    }, 2000);
     return;
   }
 
-  const newTask = {
+  const selectedTags = newTaskSelectedTags.length > 0 ? [...newTaskSelectedTags] : ['general'];
+
+  tasks.push({
     id: Date.now(),
-    text: trimmed,
-    completed: false
-  };
+    title,
+    description: desc,
+    completed: false,
+    tags: selectedTags
+  });
 
-  tasks.push(newTask);
-  saveTasks();
-  renderTasks();
-  clearInput();
+  saveData();
+  titleInput.value = '';
+  descInput.value  = '';
+  newTaskSelectedTags = ['general'];
+  renderNewTaskTagSelector();
+  renderTable();
 }
 
-function showError(message) {
-  const input = document.getElementById('taskInput');
-  input.classList.add('error');
-  input.placeholder = message;
-  setTimeout(() => {
-    input.classList.remove('error');
-    input.placeholder = 'Escribe una tarea...';
-  }, 2000);
+// ==========================================
+// ELIMINAR TAREA
+// ==========================================
+function deleteTask(id) {
+  tasks = tasks.filter(t => t.id !== id);
+  saveData();
+  renderTable();
 }
 
-function clearInput() {
-  document.getElementById('taskInput').value = '';
+// ==========================================
+// TOGGLE COMPLETADO
+// ==========================================
+function toggleComplete(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  task.completed = !task.completed;
+  saveData();
+  renderTable();
 }
 
+// ==========================================
+// MODAL DE EDICIÓN
+// ==========================================
+function openEditModal(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
 
-// RENDERIZADO
+  editingTaskId = id;
+  document.getElementById('editTitle').value = task.title || '';
+  document.getElementById('editDesc').value  = task.description || '';
+  renderEditTagSelector(task.tags || ['general']);
+  document.getElementById('editModal').style.display = 'flex';
+}
 
-function renderTasks() {
-  const list = document.getElementById('taskList');
-  list.innerHTML = '';
+function closeEditModal() {
+  editingTaskId = null;
+  document.getElementById('editModal').style.display = 'none';
+}
+
+function saveEditModal() {
+  if (!editingTaskId) return;
+  const task = tasks.find(t => t.id === editingTaskId);
+  if (!task) return;
+
+  const titleInput = document.getElementById('editTitle');
+  const newTitle = titleInput.value.trim();
+
+  if (!newTitle) {
+    titleInput.classList.add('error');
+    setTimeout(() => titleInput.classList.remove('error'), 2000);
+    return;
+  }
+
+  task.title = newTitle;
+  task.description = document.getElementById('editDesc').value.trim();
+
+  // Recoger tags seleccionados del modal
+  const selectedChips = document.querySelectorAll('#editTagSelector .tag-chip-check.selected');
+  const selectedTags = Array.from(selectedChips).map(c => c.dataset.tag);
+  task.tags = selectedTags.length > 0 ? selectedTags : ['general'];
+
+  saveData();
+  closeEditModal();
+  renderTable();
+}
+
+function handleOverlayClick(e) {
+  if (e.target.id === 'editModal') closeEditModal();
+}
+
+// ==========================================
+// TAGS – CREAR Y ELIMINAR
+// ==========================================
+function createTag() {
+  const input = document.getElementById('newTagInput');
+  const name  = input.value.trim().toLowerCase().replace(/\s+/g, '-');
+
+  if (!name) return;
+  if (availableTags.includes(name)) {
+    input.classList.add('error');
+    setTimeout(() => input.classList.remove('error'), 1500);
+    return;
+  }
+
+  availableTags.push(name);
+  saveData();
+  input.value = '';
+  renderTagsManagement();
+  renderNewTaskTagSelector();
+  renderTagFilters();
+}
+
+function deleteTag(tagName) {
+  if (tagName === 'general') return;
+
+  availableTags = availableTags.filter(t => t !== tagName);
+
+  // Quitar el tag de todas las tareas
+  tasks.forEach(task => {
+    task.tags = task.tags.filter(t => t !== tagName);
+    if (task.tags.length === 0) task.tags = ['general'];
+  });
+
+  // Resetear filtro si era el que estaba activo
+  if (currentTagFilter === tagName) currentTagFilter = null;
+
+  saveData();
+  renderTagsManagement();
+  renderNewTaskTagSelector();
+  renderTagFilters();
+  renderTable();
+}
+
+// ==========================================
+// RENDERIZADO – SELECTOR DE TAGS (formulario)
+// ==========================================
+function renderNewTaskTagSelector() {
+  const container = document.getElementById('newTaskTagSelector');
+  container.innerHTML = '';
+
+  availableTags.forEach(tag => {
+    const chip = buildTagChip(tag, newTaskSelectedTags.includes(tag), (selected, t) => {
+      if (t === 'general' && !selected) return; // general siempre activo si es el único
+      if (selected) {
+        if (!newTaskSelectedTags.includes(t)) newTaskSelectedTags.push(t);
+      } else {
+        newTaskSelectedTags = newTaskSelectedTags.filter(x => x !== t);
+        if (newTaskSelectedTags.length === 0) newTaskSelectedTags = ['general'];
+      }
+      renderNewTaskTagSelector();
+    });
+    container.appendChild(chip);
+  });
+}
+
+function renderEditTagSelector(currentTags) {
+  const container = document.getElementById('editTagSelector');
+  container.innerHTML = '';
+  let editSelected = [...currentTags];
+
+  availableTags.forEach(tag => {
+    const chip = buildTagChip(tag, editSelected.includes(tag), (selected, t) => {
+      if (selected) {
+        if (!editSelected.includes(t)) editSelected.push(t);
+      } else {
+        editSelected = editSelected.filter(x => x !== t);
+        if (editSelected.length === 0) editSelected = ['general'];
+      }
+      // Re-render con nuevo estado
+      container.querySelectorAll('.tag-chip-check').forEach(c => {
+        c.classList.toggle('selected', editSelected.includes(c.dataset.tag));
+      });
+    });
+    container.appendChild(chip);
+  });
+}
+
+function buildTagChip(tag, isSelected, onChange) {
+  const chip = document.createElement('span');
+  chip.className = `tag-chip-check${isSelected ? ' selected' : ''}${tag === 'general' ? ' tag-general' : ''}`;
+  chip.dataset.tag = tag;
+  chip.textContent = tag;
+
+  chip.addEventListener('click', () => {
+    const nowSelected = !chip.classList.contains('selected');
+    onChange(nowSelected, tag);
+  });
+
+  return chip;
+}
+
+// ==========================================
+// RENDERIZADO – GESTIÓN DE TAGS
+// ==========================================
+function renderTagsManagement() {
+  const container = document.getElementById('tagListManage');
+  container.innerHTML = '';
+
+  availableTags.forEach(tag => {
+    const chip = document.createElement('span');
+    chip.className = `tag-manage-chip${tag === 'general' ? ' is-general' : ''}`;
+
+    const label = document.createElement('span');
+    label.textContent = tag;
+    chip.appendChild(label);
+
+    if (tag !== 'general') {
+      const del = document.createElement('button');
+      del.className = 'delete-tag';
+      del.title = `Eliminar etiqueta "${tag}"`;
+      del.textContent = '✕';
+      del.addEventListener('click', () => deleteTag(tag));
+      chip.appendChild(del);
+    }
+
+    container.appendChild(chip);
+  });
+}
+
+// ==========================================
+// RENDERIZADO – FILTROS DE TAGS
+// ==========================================
+function renderTagFilters() {
+  const container = document.getElementById('tagFilters');
+  container.innerHTML = '';
+
+  availableTags.forEach(tag => {
+    const btn = document.createElement('button');
+    btn.className = `tag-filter-btn${currentTagFilter === tag ? ' active' : ''}`;
+    btn.textContent = tag;
+    btn.addEventListener('click', () => {
+      currentTagFilter = (currentTagFilter === tag) ? null : tag;
+      renderTagFilters();
+      renderTable();
+    });
+    container.appendChild(btn);
+  });
+}
+
+// ==========================================
+// FILTROS DE ESTADO
+// ==========================================
+function setStatusFilter(filter) {
+  currentStatusFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.filter === filter);
+  });
+  renderTable();
+}
+
+// ==========================================
+// RENDERIZADO – TABLA
+// ==========================================
+function renderTable() {
+  const tbody     = document.getElementById('taskTableBody');
+  const emptyDiv  = document.getElementById('emptyState');
+  const tableWrap = document.querySelector('.table-wrap');
+  tbody.innerHTML = '';
+
+  const search = currentSearch.toLowerCase();
 
   const filtered = tasks.filter(task => {
-    if (currentFilter === 'pending') return !task.completed;
-    if (currentFilter === 'completed') return task.completed;
+    // Filtro de estado
+    if (currentStatusFilter === 'pending'   && task.completed)  return false;
+    if (currentStatusFilter === 'completed' && !task.completed) return false;
+
+    // Filtro de tag
+    if (currentTagFilter && !task.tags.includes(currentTagFilter)) return false;
+
+    // Búsqueda
+    if (search) {
+      const inTitle = (task.title || '').toLowerCase().includes(search);
+      const inDesc  = (task.description || '').toLowerCase().includes(search);
+      const inTags  = task.tags.some(t => t.toLowerCase().includes(search));
+      if (!inTitle && !inDesc && !inTags) return false;
+    }
+
     return true;
   });
 
   if (filtered.length === 0) {
-    list.innerHTML = '<li class="empty">No hay tareas aquí.</li>';
+    tableWrap.style.display = 'none';
+    emptyDiv.style.display  = 'block';
     return;
   }
+
+  tableWrap.style.display = 'block';
+  emptyDiv.style.display  = 'none';
 
   filtered.forEach(task => {
-    const li = document.createElement('li');
-    li.className = `task-item ${task.completed ? 'completed' : ''}`;
-    li.dataset.id = task.id;
-    li.innerHTML = `
-      <span class="task-text">${task.text}</span>
-      <div class="task-actions">
-        <button class="btn-complete" onclick="toggleComplete(${task.id})">✓</button>
-        <button class="btn-edit" onclick="editTask(${task.id})">✎</button>
-        <button class="btn-delete" onclick="deleteTask(${task.id})">✕</button>
-      </div>
-    `;
-    list.appendChild(li);
-  });
-}
+    const tr = document.createElement('tr');
+    if (task.completed) tr.classList.add('is-completed');
 
-// HU-06: FILTROS
+    // --- Título + tags ---
+    const tdTitle = document.createElement('td');
+    const titleSpan = document.createElement('div');
+    titleSpan.className = `cell-title${task.completed ? ' done-text' : ''}`;
+    titleSpan.textContent = task.title || '(sin título)';
+    tdTitle.appendChild(titleSpan);
 
-function setFilter(filter) {
-  currentFilter = filter;
-
-  // Actualizar botón activo
-  document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.classList.remove('active');
-    if (btn.dataset.filter === filter) {
-      btn.classList.add('active');
+    if (task.tags && task.tags.length > 0) {
+      const tagRow = document.createElement('div');
+      tagRow.className = 'cell-tags';
+      task.tags.forEach(t => {
+        const tag = document.createElement('span');
+        tag.className = 'inline-tag';
+        tag.textContent = t;
+        tagRow.appendChild(tag);
+      });
+      tdTitle.appendChild(tagRow);
     }
-  });
 
-  renderTasks();
-}
+    // --- Descripción ---
+    const tdDesc = document.createElement('td');
+    const descSpan = document.createElement('span');
+    descSpan.className = 'cell-desc';
+    descSpan.textContent = task.description || '—';
+    tdDesc.appendChild(descSpan);
 
+    // --- Completado ---
+    const tdDone = document.createElement('td');
+    tdDone.className = 'cell-done';
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = `complete-toggle${task.completed ? ' checked' : ''}`;
+    toggleBtn.title = task.completed ? 'Marcar como pendiente' : 'Marcar como completada';
+    toggleBtn.textContent = '✓';
+    toggleBtn.addEventListener('click', () => toggleComplete(task.id));
+    tdDone.appendChild(toggleBtn);
 
-// HU-02: MARCAR COMO COMPLETADA
+    // --- Acciones ---
+    const tdActions = document.createElement('td');
+    tdActions.className = 'cell-actions';
+    const actWrap = document.createElement('div');
+    actWrap.className = 'actions-wrap';
 
-function toggleComplete(id) {
-  const task = tasks.find(t => t.id === id);
-  if (!task) return;
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn-edit';
+    editBtn.textContent = '✎ Editar';
+    editBtn.addEventListener('click', () => openEditModal(task.id));
 
-  task.completed = !task.completed;
-  saveTasks();
-  renderTasks();
-}
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-delete';
+    delBtn.textContent = '✕ Eliminar';
+    delBtn.addEventListener('click', () => deleteTask(task.id));
 
+    actWrap.appendChild(editBtn);
+    actWrap.appendChild(delBtn);
+    tdActions.appendChild(actWrap);
 
-// HU-03: ELIMINAR TAREA
-
-function deleteTask(id) {
-  tasks = tasks.filter(t => t.id !== id);
-  saveTasks();
-  renderTasks();
-}
-
-
-// HU-04: EDITAR TAREA
-
-function editTask(id) {
-  const task = tasks.find(t => t.id === id);
-  if (!task) return;
-
-  const li = document.querySelector(`[data-id="${id}"]`);
-  const textSpan = li.querySelector('.task-text');
-
-  // Convertir texto en input editable
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.value = task.text;
-  input.className = 'edit-input';
-  textSpan.replaceWith(input);
-  input.focus();
-
-  // Cambiar botones
-  const actions = li.querySelector('.task-actions');
-  actions.innerHTML = `
-    <button class="btn-save" onclick="saveEdit(${id}, this)">Guardar</button>
-    <button class="btn-cancel" onclick="cancelEdit(${id}, '${task.text}')">Cancelar</button>
-  `;
-
-  // Confirmar con Enter
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') saveEdit(id, input);
-    if (e.key === 'Escape') cancelEdit(id, task.text);
+    tr.appendChild(tdTitle);
+    tr.appendChild(tdDesc);
+    tr.appendChild(tdDone);
+    tr.appendChild(tdActions);
+    tbody.appendChild(tr);
   });
 }
 
-function saveEdit(id, btn) {
-  const li = document.querySelector(`[data-id="${id}"]`);
-  const input = li.querySelector('.edit-input');
-  const newText = input.value.trim();
-
-  if (newText === '') {
-    input.classList.add('error');
-    input.placeholder = 'No puede estar vacío';
-    setTimeout(() => input.classList.remove('error'), 2000);
-    return;
-  }
-
-  const task = tasks.find(t => t.id === id);
-  task.text = newText;
-  saveTasks();
-  renderTasks();
-}
-
-function cancelEdit(id, originalText) {
-  renderTasks();
-}
-
-
-// HU-07: MODO OSCURO
-
+// ==========================================
+// TEMA
+// ==========================================
 function toggleTheme() {
   const isDark = document.body.classList.toggle('dark');
   localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  document.getElementById('themeBtn').textContent = isDark ? '☀️ Modo Claro' : '🌙 Modo Oscuro';
+  document.getElementById('themeBtn').textContent = isDark ? '☀️' : '🌙';
 }
 
 function loadTheme() {
-  const saved = localStorage.getItem('theme');
-  if (saved === 'dark') {
+  if (localStorage.getItem('theme') === 'dark') {
     document.body.classList.add('dark');
-    document.getElementById('themeBtn').textContent = '☀️ Modo Claro';
+    document.getElementById('themeBtn').textContent = '☀️';
   }
 }
 
-
+// ==========================================
 // EVENTOS
+// ==========================================
+document.getElementById('addBtn').addEventListener('click', addTask);
 
-// Eventos de filtros
+document.getElementById('taskTitle').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addTask();
+});
+
+document.getElementById('taskDesc').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addTask();
+});
+
+document.getElementById('createTagBtn').addEventListener('click', createTag);
+
+document.getElementById('newTagInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') createTag();
+});
+
 document.querySelectorAll('.filter-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    setFilter(btn.dataset.filter);
-  });
+  btn.addEventListener('click', () => setStatusFilter(btn.dataset.filter));
 });
 
-document.getElementById('addBtn').addEventListener('click', () => {
-  const input = document.getElementById('taskInput');
-  addTask(input.value);
+document.getElementById('searchInput').addEventListener('input', e => {
+  currentSearch = e.target.value;
+  renderTable();
 });
 
-document.getElementById('taskInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    addTask(e.target.value);
-  }
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeEditModal();
 });
 
-
+// ==========================================
 // INICIO
+// ==========================================
 loadTheme();
-loadTasks();
-renderTasks();
+loadData();
+renderTagsManagement();
+renderNewTaskTagSelector();
+renderTagFilters();
+renderTable();
