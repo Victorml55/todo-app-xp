@@ -4,41 +4,53 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ToDo App - XP</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+
+  <!-- BARRA SUPERIOR: filtros + búsqueda -->
+  <nav class="top-bar">
+    <div class="top-left">
+      <span class="app-title">Lista de Tareas</span>
+      <button id="themeBtn" onclick="toggleTheme()">🌙</button>
+    </div>
+    <div class="top-center">
+      <span class="filters-label">Filtros</span>
+      <div class="status-filters">
+        <button class="filter-btn active" data-filter="all">Todas</button>
+        <button class="filter-btn" data-filter="pending">Pendientes</button>
+        <button class="filter-btn" data-filter="completed">Completadas</button>
+      </div>
+      <div class="tag-filters" id="tagFilters"></div>
+    </div>
+    <div class="top-right">
+      <input type="text" id="searchInput" placeholder="Buscar tareas...">
+    </div>
+  </nav>
+
   <div class="container">
 
-    <header class="app-header">
-      <div class="header-left">
-        <span class="header-icon">◈</span>
-        <h1>Lista de Tareas</h1>
-      </div>
-      <button id="themeBtn" onclick="toggleTheme()">🌙</button>
-    </header>
-
-    <!-- FORMULARIO DE NUEVA TAREA -->
+    <!-- FORMULARIO NUEVA TAREA -->
     <section class="add-section">
-      <div class="add-form">
-        <div class="add-row">
-          <div class="field-group">
-            <label for="taskTitle">Título</label>
-            <input type="text" id="taskTitle" placeholder="Nombre de la tarea..." autocomplete="off">
-          </div>
-          <div class="field-group field-grow">
-            <label for="taskDesc">Descripción</label>
-            <input type="text" id="taskDesc" placeholder="Descripción opcional..." autocomplete="off">
-          </div>
+      <div class="add-row">
+        <div class="field-group">
+          <label for="taskTitle">Título</label>
+          <input type="text" id="taskTitle" placeholder="Nombre de la tarea..." autocomplete="off">
         </div>
-        <div class="add-row">
-          <div class="field-group field-tags">
-            <label>Tags</label>
-            <div class="tag-selector" id="newTaskTagSelector"></div>
-          </div>
-          <button id="addBtn">+ Agregar</button>
+        <div class="field-group field-grow">
+          <label for="taskDesc">Descripción</label>
+          <input type="text" id="taskDesc" placeholder="Descripción opcional..." autocomplete="off">
+        </div>
+        <div class="field-group">
+          <label for="taskDueDate">Fecha límite</label>
+          <input type="date" id="taskDueDate">
+        </div>
+        <button id="addBtn">+ Agregar</button>
+      </div>
+      <div class="add-row-tags">
+        <div class="field-group">
+          <label>Etiquetas</label>
+          <div class="tag-selector" id="newTaskTagSelector"></div>
         </div>
       </div>
     </section>
@@ -55,22 +67,6 @@
       <div class="tag-list-manage" id="tagListManage"></div>
     </section>
 
-    <!-- BÚSQUEDA + FILTROS -->
-    <section class="search-filter-bar">
-      <div class="search-wrap">
-        <span class="search-icon">⌕</span>
-        <input type="text" id="searchInput" placeholder="Buscar tareas..." autocomplete="off">
-      </div>
-      <div class="filters-row">
-        <div class="status-filters">
-          <button class="filter-btn active" data-filter="all">Todas</button>
-          <button class="filter-btn" data-filter="pending">Pendientes</button>
-          <button class="filter-btn" data-filter="completed">Completadas</button>
-        </div>
-        <div class="tag-filters" id="tagFilters"></div>
-      </div>
-    </section>
-
     <!-- TABLA -->
     <section class="table-section">
       <div class="table-wrap">
@@ -79,6 +75,8 @@
             <tr>
               <th class="col-title">Título</th>
               <th class="col-desc">Descripción</th>
+              <th class="col-date">Fecha de creación</th>
+              <th class="col-date">Fecha límite</th>
               <th class="col-done">Completado</th>
               <th class="col-actions">Acciones</th>
             </tr>
@@ -87,7 +85,6 @@
         </table>
       </div>
       <div class="empty-state" id="emptyState" style="display:none;">
-        <span class="empty-icon">◻</span>
         <p>No hay tareas aquí.</p>
       </div>
     </section>
@@ -111,13 +108,33 @@
           <input type="text" id="editDesc" placeholder="Descripción...">
         </div>
         <div class="field-group">
-          <label>Tags</label>
+          <label for="editDueDate">Fecha límite</label>
+          <input type="date" id="editDueDate">
+        </div>
+        <div class="field-group">
+          <label>Etiquetas</label>
           <div class="tag-selector" id="editTagSelector"></div>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn-cancel-modal" onclick="closeEditModal()">Cancelar</button>
         <button class="btn-save-modal" onclick="saveEditModal()">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE CONFIRMACIÓN ELIMINAR -->
+  <div class="modal-overlay" id="confirmModal" style="display:none;">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h2>Confirmar eliminación</h2>
+      </div>
+      <div class="modal-body">
+        <p>¿Estás seguro de que deseas eliminar esta tarea? Esta acción no se puede deshacer.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel-modal" onclick="closeConfirmModal()">Cancelar</button>
+        <button class="btn-delete-confirm" onclick="confirmDelete()">Eliminar</button>
       </div>
     </div>
   </div>

@@ -4,11 +4,11 @@
 let tasks = [];
 let availableTags = ['general'];
 let currentStatusFilter = 'all';
-let currentTagFilter = null; // null = todas las etiquetas
+let currentTagFilter = null;
 let currentSearch = '';
 let editingTaskId = null;
+let deletingTaskId = null;
 
-// Tags seleccionados en el formulario de nueva tarea
 let newTaskSelectedTags = ['general'];
 
 // ==========================================
@@ -21,9 +21,10 @@ function loadData() {
     tasks.forEach(task => {
       if (!task.tags) task.tags = ['general'];
       if (!task.description) task.description = '';
+      if (!task.createdAt) task.createdAt = null;
+      if (!task.dueDate) task.dueDate = null;
     });
   } catch (e) {
-    console.warn('Error al cargar tareas.');
     tasks = [];
   }
 
@@ -49,10 +50,12 @@ function saveData() {
 // AGREGAR TAREA
 // ==========================================
 function addTask() {
-  const titleInput = document.getElementById('taskTitle');
-  const descInput  = document.getElementById('taskDesc');
-  const title = titleInput.value.trim();
-  const desc  = descInput.value.trim();
+  const titleInput   = document.getElementById('taskTitle');
+  const descInput    = document.getElementById('taskDesc');
+  const dueDateInput = document.getElementById('taskDueDate');
+  const title   = titleInput.value.trim();
+  const desc    = descInput.value.trim();
+  const dueDate = dueDateInput.value || null;
 
   if (!title) {
     titleInput.classList.add('error');
@@ -71,24 +74,39 @@ function addTask() {
     title,
     description: desc,
     completed: false,
-    tags: selectedTags
+    tags: selectedTags,
+    createdAt: new Date().toISOString(),
+    dueDate: dueDate
   });
 
   saveData();
-  titleInput.value = '';
-  descInput.value  = '';
+  titleInput.value    = '';
+  descInput.value     = '';
+  dueDateInput.value  = '';
   newTaskSelectedTags = ['general'];
   renderNewTaskTagSelector();
   renderTable();
 }
 
 // ==========================================
-// ELIMINAR TAREA
+// ELIMINAR TAREA (con confirmación)
 // ==========================================
 function deleteTask(id) {
-  tasks = tasks.filter(t => t.id !== id);
+  deletingTaskId = id;
+  document.getElementById('confirmModal').style.display = 'flex';
+}
+
+function confirmDelete() {
+  if (deletingTaskId === null) return;
+  tasks = tasks.filter(t => t.id !== deletingTaskId);
   saveData();
   renderTable();
+  closeConfirmModal();
+}
+
+function closeConfirmModal() {
+  deletingTaskId = null;
+  document.getElementById('confirmModal').style.display = 'none';
 }
 
 // ==========================================
@@ -110,8 +128,9 @@ function openEditModal(id) {
   if (!task) return;
 
   editingTaskId = id;
-  document.getElementById('editTitle').value = task.title || '';
-  document.getElementById('editDesc').value  = task.description || '';
+  document.getElementById('editTitle').value   = task.title || '';
+  document.getElementById('editDesc').value    = task.description || '';
+  document.getElementById('editDueDate').value = task.dueDate || '';
   renderEditTagSelector(task.tags || ['general']);
   document.getElementById('editModal').style.display = 'flex';
 }
@@ -127,7 +146,7 @@ function saveEditModal() {
   if (!task) return;
 
   const titleInput = document.getElementById('editTitle');
-  const newTitle = titleInput.value.trim();
+  const newTitle   = titleInput.value.trim();
 
   if (!newTitle) {
     titleInput.classList.add('error');
@@ -135,12 +154,12 @@ function saveEditModal() {
     return;
   }
 
-  task.title = newTitle;
+  task.title       = newTitle;
   task.description = document.getElementById('editDesc').value.trim();
+  task.dueDate     = document.getElementById('editDueDate').value || null;
 
-  // Recoger tags seleccionados del modal
   const selectedChips = document.querySelectorAll('#editTagSelector .tag-chip-check.selected');
-  const selectedTags = Array.from(selectedChips).map(c => c.dataset.tag);
+  const selectedTags  = Array.from(selectedChips).map(c => c.dataset.tag);
   task.tags = selectedTags.length > 0 ? selectedTags : ['general'];
 
   saveData();
@@ -178,14 +197,11 @@ function deleteTag(tagName) {
   if (tagName === 'general') return;
 
   availableTags = availableTags.filter(t => t !== tagName);
-
-  // Quitar el tag de todas las tareas
   tasks.forEach(task => {
     task.tags = task.tags.filter(t => t !== tagName);
     if (task.tags.length === 0) task.tags = ['general'];
   });
 
-  // Resetear filtro si era el que estaba activo
   if (currentTagFilter === tagName) currentTagFilter = null;
 
   saveData();
@@ -204,7 +220,6 @@ function renderNewTaskTagSelector() {
 
   availableTags.forEach(tag => {
     const chip = buildTagChip(tag, newTaskSelectedTags.includes(tag), (selected, t) => {
-      if (t === 'general' && !selected) return; // general siempre activo si es el único
       if (selected) {
         if (!newTaskSelectedTags.includes(t)) newTaskSelectedTags.push(t);
       } else {
@@ -230,7 +245,6 @@ function renderEditTagSelector(currentTags) {
         editSelected = editSelected.filter(x => x !== t);
         if (editSelected.length === 0) editSelected = ['general'];
       }
-      // Re-render con nuevo estado
       container.querySelectorAll('.tag-chip-check').forEach(c => {
         c.classList.toggle('selected', editSelected.includes(c.dataset.tag));
       });
@@ -241,15 +255,13 @@ function renderEditTagSelector(currentTags) {
 
 function buildTagChip(tag, isSelected, onChange) {
   const chip = document.createElement('span');
-  chip.className = `tag-chip-check${isSelected ? ' selected' : ''}${tag === 'general' ? ' tag-general' : ''}`;
+  chip.className = `tag-chip-check${isSelected ? ' selected' : ''}`;
   chip.dataset.tag = tag;
   chip.textContent = tag;
-
   chip.addEventListener('click', () => {
     const nowSelected = !chip.classList.contains('selected');
     onChange(nowSelected, tag);
   });
-
   return chip;
 }
 
@@ -313,6 +325,23 @@ function setStatusFilter(filter) {
 }
 
 // ==========================================
+// UTILIDAD – FORMATEO DE FECHA
+// ==========================================
+function formatDate(isoStr) {
+  if (!isoStr) return '—';
+  const d = new Date(isoStr);
+  if (isNaN(d)) return '—';
+  return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function formatDueDate(dateStr) {
+  if (!dateStr) return '—';
+  const [y, m, d] = dateStr.split('-');
+  if (!y || !m || !d) return '—';
+  return `${d}/${m}/${y}`;
+}
+
+// ==========================================
 // RENDERIZADO – TABLA
 // ==========================================
 function renderTable() {
@@ -324,21 +353,15 @@ function renderTable() {
   const search = currentSearch.toLowerCase();
 
   const filtered = tasks.filter(task => {
-    // Filtro de estado
     if (currentStatusFilter === 'pending'   && task.completed)  return false;
     if (currentStatusFilter === 'completed' && !task.completed) return false;
-
-    // Filtro de tag
     if (currentTagFilter && !task.tags.includes(currentTagFilter)) return false;
-
-    // Búsqueda
     if (search) {
       const inTitle = (task.title || '').toLowerCase().includes(search);
       const inDesc  = (task.description || '').toLowerCase().includes(search);
       const inTags  = task.tags.some(t => t.toLowerCase().includes(search));
       if (!inTitle && !inDesc && !inTags) return false;
     }
-
     return true;
   });
 
@@ -355,13 +378,12 @@ function renderTable() {
     const tr = document.createElement('tr');
     if (task.completed) tr.classList.add('is-completed');
 
-    // --- Título + tags ---
+    // Título + tags
     const tdTitle = document.createElement('td');
-    const titleSpan = document.createElement('div');
-    titleSpan.className = `cell-title${task.completed ? ' done-text' : ''}`;
-    titleSpan.textContent = task.title || '(sin título)';
-    tdTitle.appendChild(titleSpan);
-
+    const titleDiv = document.createElement('div');
+    titleDiv.className = `cell-title${task.completed ? ' done-text' : ''}`;
+    titleDiv.textContent = task.title || '(sin título)';
+    tdTitle.appendChild(titleDiv);
     if (task.tags && task.tags.length > 0) {
       const tagRow = document.createElement('div');
       tagRow.className = 'cell-tags';
@@ -374,14 +396,22 @@ function renderTable() {
       tdTitle.appendChild(tagRow);
     }
 
-    // --- Descripción ---
+    // Descripción
     const tdDesc = document.createElement('td');
-    const descSpan = document.createElement('span');
-    descSpan.className = 'cell-desc';
-    descSpan.textContent = task.description || '—';
-    tdDesc.appendChild(descSpan);
+    tdDesc.className = 'cell-desc';
+    tdDesc.textContent = task.description || '—';
 
-    // --- Completado ---
+    // Fecha creación
+    const tdCreated = document.createElement('td');
+    tdCreated.className = 'cell-date';
+    tdCreated.textContent = formatDate(task.createdAt);
+
+    // Fecha límite
+    const tdDue = document.createElement('td');
+    tdDue.className = 'cell-date';
+    tdDue.textContent = formatDueDate(task.dueDate);
+
+    // Completado
     const tdDone = document.createElement('td');
     tdDone.className = 'cell-done';
     const toggleBtn = document.createElement('button');
@@ -391,7 +421,7 @@ function renderTable() {
     toggleBtn.addEventListener('click', () => toggleComplete(task.id));
     tdDone.appendChild(toggleBtn);
 
-    // --- Acciones ---
+    // Acciones
     const tdActions = document.createElement('td');
     tdActions.className = 'cell-actions';
     const actWrap = document.createElement('div');
@@ -413,6 +443,8 @@ function renderTable() {
 
     tr.appendChild(tdTitle);
     tr.appendChild(tdDesc);
+    tr.appendChild(tdCreated);
+    tr.appendChild(tdDue);
     tr.appendChild(tdDone);
     tr.appendChild(tdActions);
     tbody.appendChild(tr);
@@ -443,13 +475,11 @@ document.getElementById('addBtn').addEventListener('click', addTask);
 document.getElementById('taskTitle').addEventListener('keydown', e => {
   if (e.key === 'Enter') addTask();
 });
-
 document.getElementById('taskDesc').addEventListener('keydown', e => {
   if (e.key === 'Enter') addTask();
 });
 
 document.getElementById('createTagBtn').addEventListener('click', createTag);
-
 document.getElementById('newTagInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') createTag();
 });
@@ -464,7 +494,10 @@ document.getElementById('searchInput').addEventListener('input', e => {
 });
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeEditModal();
+  if (e.key === 'Escape') {
+    closeEditModal();
+    closeConfirmModal();
+  }
 });
 
 // ==========================================
